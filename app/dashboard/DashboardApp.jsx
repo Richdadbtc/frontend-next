@@ -93,7 +93,7 @@ export default function DashboardApp() {
   const [profileAvatar, setProfileAvatar] = useState('A');
   const [kycBadge, setKycBadge] = useState('KYC Pending');
   const [kycTierDisplay, setKycTierDisplay] = useState('Tier 0 — Unverified');
-  const [kycStatusDesc, setKycStatusDesc] = useState('Submit your BVN or NIN to start buying gold.');
+  const [kycStatusDesc, setKycStatusDesc] = useState('Submit your ID or Driver liceince to start buying gold.');
   const [profileMsg, setProfileMsg] = useState('');
 
   const [kycBvn, setKycBvn] = useState('');
@@ -114,6 +114,8 @@ export default function DashboardApp() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositError, setDepositError] = useState('');
+  const [payOptionOpen, setPayOptionOpen] = useState(false);
+  const [payOptionError, setPayOptionError] = useState('');
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState('Confirm');
@@ -221,7 +223,7 @@ export default function DashboardApp() {
     setKycVerified(verified);
     setKycBadge(verified ? `KYC Tier ${data.user.kycTier}` : `KYC ${data.user.kycStatus}`);
     setKycTierDisplay(`Tier ${data.user.kycTier} — ${verified ? 'Verified' : 'Unverified'}`);
-    setKycStatusDesc(verified ? 'You can buy gold instantly.' : 'Submit your BVN or NIN to start buying gold.');
+    setKycStatusDesc(verified ? 'You can buy gold instantly.' : 'Submit your ID or Driver liceince to start buying gold.');
     updateBuyPreview(buyAmount, buyMode, pricePerGram, verified);
   }
 
@@ -411,6 +413,18 @@ export default function DashboardApp() {
     const data = await res?.json?.().catch(() => ({}));
     if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to initiate payment');
     window.location.href = data.authorizationUrl;
+  }
+
+  function onDepositContinue() {
+    setDepositError('');
+    setPayOptionError('');
+    const amount = parseFloat(String(depositAmount || ''));
+    if (!amount || amount < 1) {
+      setDepositError('Enter a valid amount');
+      return;
+    }
+    setDepositOpen(false);
+    setPayOptionOpen(true);
   }
 
   useEffect(() => {
@@ -865,8 +879,64 @@ export default function DashboardApp() {
               </div>
             </div>
 
-            <button className="btn-action gold" onClick={() => onDeposit().catch((e) => setDepositError(e.message))}>Continue</button>
+            <button className="btn-action gold" onClick={onDepositContinue}>Continue</button>
             {depositError ? <div style={{ marginTop: 10, fontSize: 13, color: 'var(--red)' }}>{depositError}</div> : null}
+          </div>
+        </div>
+      ) : null}
+
+      {payOptionOpen ? (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 75, display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setPayOptionOpen(false)}>
+          <div style={{ width: 'min(560px, 100%)', background: 'rgba(17,17,17,0.9)', border: '1px solid var(--border-dim)', borderRadius: 18, padding: 16 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-0)' }}>Choose payment option</div>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 12px', height: 36 }} onClick={() => setPayOptionOpen(false)}>Close</button>
+            </div>
+
+            <div style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 12 }}>
+              Deposit amount: <strong style={{ color: 'var(--text-0)' }}>{fmtMoney(parseFloat(String(depositAmount || '0')) || 0)}</strong>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+              <button
+                className="btn-action"
+                onClick={() => setPayOptionError('BTC deposits are coming soon. Please use Bank Transfer for now.')}
+                style={{ height: 56 }}
+              >
+                BTC
+              </button>
+              <button
+                className="btn-action"
+                onClick={() => setPayOptionError('USDT deposits are coming soon. Please use Bank Transfer for now.')}
+                style={{ height: 56 }}
+              >
+                USDT
+              </button>
+              <button
+                className="btn-action gold"
+                onClick={() => {
+                  setPayOptionError('');
+                  onDeposit()
+                    .then(() => {})
+                    .catch((e) => setPayOptionError(e.message))
+                    .finally(() => setPayOptionOpen(false));
+                }}
+                style={{ height: 56 }}
+              >
+                Bank Transfer
+              </button>
+            </div>
+
+            {payOptionError ? <div style={{ marginTop: 12, fontSize: 13, color: 'var(--red)' }}>{payOptionError}</div> : null}
+
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => { setPayOptionOpen(false); setDepositOpen(true); }}>
+                Back
+              </button>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setPayOptionOpen(false)}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

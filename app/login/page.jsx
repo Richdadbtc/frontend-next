@@ -73,7 +73,29 @@ export default function LoginPage() {
         </div>
       </nav>
 
-      <main className="auth-page" role="main" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 'calc(100vh - 68px)' }}>
+      <main className="auth-page" role="main" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 'calc(100vh - 68px)', position: 'relative' }}>
+        {loading ? (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 20,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'rgba(0,0,0,0.35)',
+              backdropFilter: 'blur(2px)',
+            }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--border-dim)', background: 'rgba(17,17,17,0.78)', color: 'var(--text-1)', fontSize: 13 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
+                <path d="M21 12a9 9 0 1 1-18 0" />
+              </svg>
+              <span>Signing in…</span>
+            </div>
+          </div>
+        ) : null}
+
         <section className="auth-left" aria-hidden="true" style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 3rem' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 30% 70%, rgba(201,168,76,0.08) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 80% 20%, rgba(201,168,76,0.04) 0%, transparent 60%)' }} />
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(var(--border-dim) 1px, transparent 1px), linear-gradient(90deg, var(--border-dim) 1px, transparent 1px)', backgroundSize: '50px 50px', maskImage: 'radial-gradient(ellipse 90% 80% at 40% 50%, black 0%, transparent 75%)', WebkitMaskImage: 'radial-gradient(ellipse 90% 80% at 40% 50%, black 0%, transparent 75%)' }} />

@@ -17,10 +17,24 @@ export default function SignupPage() {
 
   const [countries, setCountries] = useState([]);
   const [countryValue, setCountryValue] = useState('');
+  const [loadingInit, setLoadingInit] = useState(true);
   const dialPrefix = useMemo(() => {
     const parts = String(countryValue || '').split('|');
     return parts[1] ? `+${parts[1]}` : '+';
   }, [countryValue]);
+
+  const countryCode = useMemo(() => String(countryValue || '').split('|')[0] || '', [countryValue]);
+
+  const statesByCountryCode = useMemo(() => ({
+    NG: [
+      'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara',
+    ],
+    US: [
+      'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming','District of Columbia',
+    ],
+  }), []);
+
+  const stateOptions = useMemo(() => statesByCountryCode[countryCode] || null, [statesByCountryCode, countryCode]);
 
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -49,6 +63,7 @@ export default function SignupPage() {
         if (!mounted) return;
         setCountries(sorted);
         setCountryValue('');
+        setLoadingInit(false);
       } catch {
         const fallback = [
           { code: 'NG', dial: '234', name: 'Nigeria' },
@@ -58,6 +73,7 @@ export default function SignupPage() {
         if (!mounted) return;
         setCountries(fallback);
         setCountryValue('');
+        setLoadingInit(false);
       }
     })();
 
@@ -65,6 +81,10 @@ export default function SignupPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    setStateVal('');
+  }, [countryCode]);
 
   function go(n) {
     setStep(n);
@@ -204,7 +224,29 @@ export default function SignupPage() {
         </div>
       </nav>
 
-      <main className="auth-page" role="main" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 'calc(100vh - 68px)' }}>
+      <main className="auth-page" role="main" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 'calc(100vh - 68px)', position: 'relative' }}>
+        {loadingInit || loading.otpReq || loading.otpVerify || loading.register || loading.resend ? (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 20,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'rgba(0,0,0,0.35)',
+              backdropFilter: 'blur(2px)',
+            }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--border-dim)', background: 'rgba(17,17,17,0.78)', color: 'var(--text-1)', fontSize: 13 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
+                <path d="M21 12a9 9 0 1 1-18 0" />
+              </svg>
+              <span>Loading…</span>
+            </div>
+          </div>
+        ) : null}
+
         <section className="auth-left" aria-hidden="true" style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 3rem' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 60% at 70% 30%, rgba(201,168,76,0.07) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 20% 80%, rgba(201,168,76,0.04) 0%, transparent 60%)' }} />
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(var(--border-dim) 1px, transparent 1px), linear-gradient(90deg, var(--border-dim) 1px, transparent 1px)', backgroundSize: '50px 50px', maskImage: 'radial-gradient(ellipse 90% 80% at 60% 50%, black 0%, transparent 75%)', WebkitMaskImage: 'radial-gradient(ellipse 90% 80% at 60% 50%, black 0%, transparent 75%)' }} />
@@ -262,7 +304,7 @@ export default function SignupPage() {
 
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Country</label>
-                  <select value={countryValue} onChange={(e) => setCountryValue(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.country ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }}>
+                  <select disabled={loadingInit} value={countryValue} onChange={(e) => setCountryValue(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.country ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)', opacity: loadingInit ? 0.7 : 1 }}>
                     <option value="">Select your country</option>
                     {countries.map((c) => {
                       const dial = String(c.dial).replace(/[^0-9]/g, '');
@@ -315,7 +357,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   className="btn btn-gold"
-                  disabled={loading.otpReq}
+                  disabled={loadingInit || loading.otpReq}
                   onClick={() => {
                     if (!validateStep1()) return;
                     requestOtp();
@@ -409,13 +451,16 @@ export default function SignupPage() {
 
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>State of residence</label>
-                  <select value={state} onChange={(e) => setStateVal(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.state ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }}>
-                    <option value="">Select your state</option>
-                    <option value="Lagos">Lagos</option>
-                    <option value="Abuja">Abuja</option>
-                    <option value="Rivers">Rivers</option>
-                    <option value="Kano">Kano</option>
-                  </select>
+                  {stateOptions ? (
+                    <select value={state} onChange={(e) => setStateVal(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.state ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }}>
+                      <option value="">Select your state</option>
+                      {stateOptions.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input value={state} onChange={(e) => setStateVal(e.target.value)} placeholder="Enter your state" style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.state ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
+                  )}
                   {err.state ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.state}</div> : null}
                 </div>
 
