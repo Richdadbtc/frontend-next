@@ -78,7 +78,8 @@ async function request(path, options = {}, retry = true) {
       if (ok) return request(path, options, false);
     }
     clearTokens();
-    window.location.href = '/login';
+    const here = window.location.pathname || '';
+    window.location.href = here.startsWith('/admin') ? '/admin/login' : '/login';
     return;
   }
 
@@ -109,13 +110,13 @@ function isLoggedIn() {
 function requireAuth({ adminRequired = false } = {}) {
   assertClient();
   if (!isLoggedIn()) {
-    window.location.href = '/login';
+    window.location.href = adminRequired ? '/admin/login' : '/login';
     return false;
   }
   if (adminRequired) {
     const user = getUser();
     if (!user || user.role !== 'admin') {
-      window.location.href = '/login';
+      window.location.href = '/admin/login';
       return false;
     }
   }
@@ -142,7 +143,8 @@ async function logout() {
   const { refresh } = getTokens();
   await post('/auth/logout', { refreshToken: refresh }).catch(() => {});
   clearTokens();
-  window.location.href = '/login';
+  const here = window.location.pathname || '';
+  window.location.href = here.startsWith('/admin') ? '/admin/login' : '/login';
 }
 
 const API = {
