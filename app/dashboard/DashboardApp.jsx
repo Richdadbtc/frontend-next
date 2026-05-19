@@ -269,6 +269,8 @@ export default function DashboardApp() {
 
   const [recentTx, setRecentTx] = useState([]);
 
+  const [gramsHeldNum, setGramsHeldNum] = useState(0);
+
   const [buyMode, setBuyMode] = useState('usd');
   const [buyAmount, setBuyAmount] = useState('');
   const [buyHint, setBuyHint] = useState('');
@@ -298,10 +300,12 @@ export default function DashboardApp() {
   const [kycStatusDesc, setKycStatusDesc] = useState('Submit your ID or Driver liceince to start buying gold.');
   const [profileMsg, setProfileMsg] = useState('');
 
-  const [kycBvn, setKycBvn] = useState('');
-  const [kycNin, setKycNin] = useState('');
   const [kycIdType, setKycIdType] = useState('');
+  const [kycFullName, setKycFullName] = useState('');
+  const [kycDocName, setKycDocName] = useState('');
   const [kycMsg, setKycMsg] = useState('');
+
+  const [kycPendingOpen, setKycPendingOpen] = useState(false);
 
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiAmount, setAiAmount] = useState('');
@@ -312,6 +316,18 @@ export default function DashboardApp() {
   const [supportMessages, setSupportMessages] = useState([]);
   const [supportInput, setSupportInput] = useState('');
   const [supportMsg, setSupportMsg] = useState('');
+
+  const [wdBanks, setWdBanks] = useState([]);
+  const [wdBankCode, setWdBankCode] = useState('');
+  const [wdAccountNumber, setWdAccountNumber] = useState('');
+  const [wdAccountName, setWdAccountName] = useState('');
+  const [wdAmount, setWdAmount] = useState('');
+  const [wdMsg, setWdMsg] = useState('');
+
+  const [stakeGrams, setStakeGrams] = useState('');
+  const [stakeTerm, setStakeTerm] = useState('2');
+  const [stakePositions, setStakePositions] = useState([]);
+  const [stakeMsg, setStakeMsg] = useState('');
 
   const [depositOpen, setDepositOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
@@ -399,7 +415,9 @@ export default function DashboardApp() {
     const pnlPct = Number(data?.portfolio?.pnlPct || 0);
     setPortPnl(`${pnl >= 0 ? '▲' : '▼'} ${fmtMoney(Math.abs(pnl))} (${pnlPct.toFixed(2)}%)`);
 
-    setPortGrams(fmtGrams(data?.portfolio?.gramsHeld));
+    const gh = Number(data?.portfolio?.gramsHeld || 0);
+    setGramsHeldNum(gh);
+    setPortGrams(fmtGrams(gh));
     setPortAvg(`Avg ${fmtMoney(data?.portfolio?.averageBuyPrice)}/g`);
     setPortInvested(fmtMoney(data?.portfolio?.totalInvested));
 
@@ -413,6 +431,69 @@ export default function DashboardApp() {
     setRecentTx(Array.isArray(data?.recentTransactions) ? data.recentTransactions : []);
     updateBuyPreview(buyAmount, buyMode, pg, kycVerified);
     updateSellPreview(sellGrams, pg);
+  }
+
+  async function loadWithdrawBanks() {
+    const res = await API.get('/payment/banks');
+    const data = await res?.json?.().catch(() => ({}));
+    if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to load banks');
+    const banks = Array.isArray(data?.banks) ? data.banks : [];
+    setWdBanks(banks);
+    if (!wdBankCode && banks[0]?.code) setWdBankCode(banks[0].code);
+  }
+
+  async function submitWithdraw() {
+    setWdMsg('');
+    const amount = parseFloat(String(wdAmount || ''));
+    if (!amount || amount < 1) throw new Error('Enter a valid amount');
+    if (!wdAccountName.trim()) throw new Error('Enter account name');
+    if (!String(wdAccountNumber || '').trim()) throw new Error('Enter account number');
+    if (!wdBankCode) throw new Error('Select bank');
+
+    const res = await API.post('/payment/withdraw', {
+      amount,
+      accountNumber: String(wdAccountNumber || '').trim(),
+      bankCode: wdBankCode,
+      accountName: wdAccountName.trim(),
+    });
+    const data = await res?.json?.().catch(() => ({}));
+    if (!res?.ok || !data?.success) throw new Error(data?.message || 'Withdrawal failed');
+    setWdMsg('Withdrawal request submitted');
+    setWdAmount('');
+    await loadDashboard().catch(() => {});
+    await loadTransactions(1).catch(() => {});
+  }
+
+  async function loadStakingPositions() {
+    const res = await API.get('/staking/positions');
+    const data = await res?.json?.().catch(() => ({}));
+    if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to load staking');
+    setStakePositions(Array.isArray(data?.positions) ? data.positions : []);
+  }
+
+  async function createStake() {
+    setStakeMsg('');
+    const grams = parseFloat(String(stakeGrams || ''));
+    const termMonths = parseInt(String(stakeTerm || '2'), 10);
+    if (!grams || grams <= 0) throw new Error('Enter grams to stake');
+    if (![2, 3, 6, 12].includes(termMonths)) throw new Error('Select a valid term');
+    const res = await API.post('/staking/stake', { grams, termMonths });
+    const data = await res?.json?.().catch(() => ({}));
+    if (!res?.ok || !data?.success) throw new Error(data?.message || 'Staking failed');
+    setStakeMsg('Staking started');
+    setStakeGrams('');
+    await loadDashboard().catch(() => {});
+    await loadStakingPositions().catch(() => {});
+  }
+
+  async function withdrawStake(positionId) {
+    setStakeMsg('');
+    const res = await API.post(`/staking/withdraw/${positionId}`, {});
+    const data = await res?.json?.().catch(() => ({}));
+    if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unstake failed');
+    setStakeMsg('Stake withdrawn');
+    await loadDashboard().catch(() => {});
+    await loadStakingPositions().catch(() => {});
   }
 
   async function doConfirm() {
@@ -464,15 +545,20 @@ export default function DashboardApp() {
 
   async function submitKyc() {
     setKycMsg('');
-    const bvn = String(kycBvn || '').replace(/\D/g, '');
-    const nin = String(kycNin || '').replace(/\D/g, '');
-    const res = await API.post('/kyc/submit', { bvn: bvn || undefined, nin: nin || undefined, idType: kycIdType || undefined });
+    if (!String(kycFullName || '').trim()) throw new Error('Enter your full name');
+    if (!kycIdType) throw new Error('Select an ID type');
+    if (!kycDocName) throw new Error('Upload your ID');
+
+    const res = await API.post('/kyc/submit', {
+      fullName: String(kycFullName || '').trim(),
+      idType: kycIdType || undefined,
+      documentName: kycDocName || undefined,
+    });
     const data = await res?.json?.().catch(() => ({}));
     if (!res?.ok || !data?.success) throw new Error(data?.message || 'KYC submission failed');
-    setKycMsg('Submitted. Refreshing status…');
-    setTimeout(() => {
-      loadProfile().catch(() => {});
-    }, 1500);
+    setKycPendingOpen(true);
+    setKycMsg('Submitted');
+    setTimeout(() => loadProfile().catch(() => {}), 1200);
   }
 
   async function loadAutoInvest() {
@@ -727,6 +813,8 @@ export default function DashboardApp() {
       await loadAutoInvest().catch(() => {});
       await loadTransactions(1).catch(() => {});
       await loadSupportMessages({ silent: true }).catch(() => {});
+      await loadWithdrawBanks().catch(() => {});
+      await loadStakingPositions().catch(() => {});
 
       await pollPrice().catch(() => {});
 
@@ -788,7 +876,18 @@ export default function DashboardApp() {
           <button className="hamburger-dash" id="menu-toggle" aria-label="Toggle menu" onClick={() => setSidebarOpen((v) => !v)}>
             <span></span><span></span><span></span>
           </button>
-          <div className="tb-greeting">{greeting}, {name}</div>
+          <div className="tb-greeting" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{greeting}, {name}</span>
+            {kycVerified ? (
+              <span
+                title="Verified"
+                aria-label="Verified"
+                style={{ width: 18, height: 18, borderRadius: 999, background: 'rgba(34,197,94,0.16)', border: '1px solid rgba(34,197,94,0.5)', display: 'grid', placeItems: 'center', color: 'var(--green)', fontSize: 12, fontWeight: 900 }}
+              >
+                ✓
+              </span>
+            ) : null}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div className="wallet-chip"><span>{walletBal}</span></div>
             <button className="btn-deposit" onClick={() => setDepositOpen(true)}>+ Deposit</button>
@@ -839,6 +938,104 @@ export default function DashboardApp() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="section-heading" style={{ marginTop: 18 }}>Withdraw</div>
+          <div className="stat-card" style={{ padding: 16 }}>
+            <div style={{ display: 'grid', gap: 10, maxWidth: 620 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <div className="sc-label">Amount (USD)</div>
+                  <input className="form-input" value={wdAmount} onChange={(e) => setWdAmount(e.target.value)} inputMode="decimal" style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }} />
+                </div>
+                <div>
+                  <div className="sc-label">Bank</div>
+                  <select className="form-input" value={wdBankCode} onChange={(e) => setWdBankCode(e.target.value)} style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }}>
+                    <option value="">Select bank</option>
+                    {wdBanks.map((b) => (
+                      <option key={b.code || b.id || b.name} value={b.code}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <div className="sc-label">Account number</div>
+                  <input className="form-input" value={wdAccountNumber} onChange={(e) => setWdAccountNumber(e.target.value)} inputMode="numeric" style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }} />
+                </div>
+                <div>
+                  <div className="sc-label">Account name</div>
+                  <input className="form-input" value={wdAccountName} onChange={(e) => setWdAccountName(e.target.value)} style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }} />
+                </div>
+              </div>
+
+              <button className="btn-action gold" style={{ maxWidth: 260 }} onClick={() => submitWithdraw().catch((e) => setWdMsg(e.message))}>Withdraw</button>
+              {wdMsg ? <div style={{ fontSize: 13, color: wdMsg.toLowerCase().includes('fail') ? 'var(--red)' : 'var(--text-2)' }}>{wdMsg}</div> : null}
+            </div>
+          </div>
+
+          <div className="section-heading" style={{ marginTop: 18 }}>Gold staking</div>
+          <div className="stat-card" style={{ padding: 16 }}>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
+                APR: <strong style={{ color: 'var(--text-0)' }}>15%</strong> · Rewards accrue daily · Locked staking only
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
+                Available balance: <strong style={{ color: 'var(--text-0)' }}>{gramsHeldNum.toFixed(4)} g</strong>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, maxWidth: 620 }}>
+                <div>
+                  <div className="sc-label">Grams to stake</div>
+                  <input className="form-input" value={stakeGrams} onChange={(e) => setStakeGrams(e.target.value)} inputMode="decimal" style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }} />
+                </div>
+                <div>
+                  <div className="sc-label">Lock period</div>
+                  <select className="form-input" value={stakeTerm} onChange={(e) => setStakeTerm(e.target.value)} style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }}>
+                    <option value="2">2 months</option>
+                    <option value="3">3 months</option>
+                    <option value="6">6 months</option>
+                    <option value="12">Annual</option>
+                  </select>
+                </div>
+              </div>
+
+              <button className="btn-action gold" style={{ maxWidth: 260 }} onClick={() => createStake().catch((e) => setStakeMsg(e.message))}>Start staking</button>
+              {stakeMsg ? <div style={{ fontSize: 13, color: stakeMsg.toLowerCase().includes('fail') ? 'var(--red)' : 'var(--text-2)' }}>{stakeMsg}</div> : null}
+
+              <div style={{ marginTop: 6 }}>
+                <div className="sc-label" style={{ marginBottom: 8 }}>Your staking positions</div>
+                {!stakePositions.length ? (
+                  <div className="empty-row">No staking positions</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {stakePositions.map((p) => {
+                      const unlockAt = p.unlockAt ? new Date(p.unlockAt) : null;
+                      const isUnlocked = unlockAt ? Date.now() >= unlockAt.getTime() : false;
+                      return (
+                        <div key={p._id} style={{ padding: '12px 12px', borderRadius: 14, border: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)', display: 'grid', gap: 6 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+                            <div style={{ color: 'var(--text-0)', fontSize: 14, fontWeight: 700 }}>{Number(p.gramsStaked || 0).toFixed(4)} g</div>
+                            <div style={{ color: 'var(--text-2)', fontSize: 12 }}>{p.status === 'closed' ? 'Closed' : isUnlocked ? 'Unlocked' : 'Locked'}</div>
+                          </div>
+                          <div style={{ color: 'var(--text-2)', fontSize: 12 }}>
+                            Term: {p.termMonths} months · Unlocks: {unlockAt ? unlockAt.toLocaleDateString() : '—'} · Rewards: {Number(p.totalRewardsGrams || 0).toFixed(4)} g
+                          </div>
+                          {p.status === 'active' ? (
+                            <div style={{ marginTop: 6, display: 'flex', justifyContent: 'flex-end' }}>
+                              <button className={isUnlocked ? 'btn-action gold' : 'btn-action'} style={{ width: 'auto', padding: '0 14px', height: 38, opacity: isUnlocked ? 1 : 0.6 }} disabled={!isUnlocked} onClick={() => withdrawStake(p._id).catch((e) => setStakeMsg(e.message))}>
+                                Withdraw
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1083,22 +1280,30 @@ export default function DashboardApp() {
               <div className="section-heading">KYC Submission</div>
               <div style={{ display: 'grid', gap: 10 }}>
                 <div>
-                  <div className="sc-label">BVN</div>
-                  <input className="form-input" value={kycBvn} onChange={(e) => setKycBvn(e.target.value)} inputMode="numeric" style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }} />
-                </div>
-                <div>
-                  <div className="sc-label">NIN</div>
-                  <input className="form-input" value={kycNin} onChange={(e) => setKycNin(e.target.value)} inputMode="numeric" style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }} />
+                  <div className="sc-label">Full name</div>
+                  <input className="form-input" value={kycFullName} onChange={(e) => setKycFullName(e.target.value)} placeholder="Your full name" style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }} />
                 </div>
                 <div>
                   <div className="sc-label">ID Type</div>
                   <select className="form-input" value={kycIdType} onChange={(e) => setKycIdType(e.target.value)} style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '0 12px' }}>
                     <option value="">Select</option>
-                    <option value="bvn">BVN</option>
-                    <option value="nin">NIN</option>
                     <option value="passport">International Passport</option>
                     <option value="drivers_license">Driver's License</option>
                   </select>
+                </div>
+                <div>
+                  <div className="sc-label">Upload ID</div>
+                  <input
+                    className="form-input"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      setKycDocName(f ? f.name : '');
+                    }}
+                    style={{ border: '1px solid var(--border-dim)', borderRadius: 12, height: 44, padding: '8px 12px' }}
+                  />
+                  {kycDocName ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-2)' }}>{kycDocName}</div> : null}
                 </div>
                 <button className="btn-action gold" onClick={() => submitKyc().catch((e) => setKycMsg(e.message))}>Submit KYC</button>
                 {kycMsg ? <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{kycMsg}</div> : null}
@@ -1369,6 +1574,25 @@ export default function DashboardApp() {
             </div>
             <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="btn-action gold" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setGeneratingDoneOpen(false)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {kycPendingOpen ? (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 78, display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setKycPendingOpen(false)}>
+          <div style={{ width: 'min(520px, 100%)', background: 'rgba(17,17,17,0.9)', border: '1px solid var(--border-dim)', borderRadius: 18, padding: 16 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-0)' }}>KYC pending verification</div>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 12px', height: 36 }} onClick={() => setKycPendingOpen(false)}>Close</button>
+            </div>
+            <div style={{ color: 'var(--text-1)', fontSize: 13, lineHeight: 1.5 }}>
+              Your KYC submission is under review. Verification is usually completed within 30 minutes.
+            </div>
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button className="btn-action gold" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setKycPendingOpen(false)}>
                 Done
               </button>
             </div>
