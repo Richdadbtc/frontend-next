@@ -3,9 +3,11 @@
 import Link from 'next/link';
 import HomeSections from './home/HomeSections';
 import useHomeEffects from './home/useHomeEffects';
+import { SUPPORTED_LANGS, useI18n } from '@/src/lib/i18n';
 
 export default function HomePage() {
   useHomeEffects();
+  const { lang, setLang, t } = useI18n();
 
   return (
     <>
@@ -16,16 +18,27 @@ export default function HomePage() {
             AURUM VAULT
           </Link>
           <ul className="nav-links" role="list">
-            <li><Link href="/" className="active">Home</Link></li>
-            <li><a href="#why">Why Gold?</a></li>
-            <li><a href="#how">How It Works</a></li>
-            <li><a href="#pricing">Pricing</a></li>
-            <li><a href="#trust">Security</a></li>
-            <li><a href="#faq">FAQ</a></li>
+            <li><Link href="/" className="active">{t('nav_home')}</Link></li>
+            <li><a href="#why">{t('nav_why')}</a></li>
+            <li><a href="#how">{t('nav_how')}</a></li>
+            <li><a href="#pricing">{t('nav_pricing')}</a></li>
+            <li><a href="#trust">{t('nav_security')}</a></li>
+            <li><a href="#faq">{t('nav_faq')}</a></li>
           </ul>
           <div className="nav-actions">
-            <Link className="btn-text" href="/login">Sign In</Link>
-            <Link className="nav-cta-btn" href="/signup">Get Started</Link>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              aria-label="Language"
+              className="btn-text"
+              style={{ border: '1px solid var(--border-dim)', borderRadius: 10, height: 38, padding: '0 10px', background: 'rgba(0,0,0,0.25)' }}
+            >
+              {SUPPORTED_LANGS.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+            <Link className="btn-text" href="/login">{t('nav_sign_in')}</Link>
+            <Link className="nav-cta-btn" href="/signup">{t('nav_get_started')}</Link>
             <button className="hamburger" aria-label="Open menu" aria-expanded="false">
               <span></span><span></span><span></span>
             </button>
@@ -41,27 +54,27 @@ export default function HomePage() {
           <div className="hero-content">
             <div className="hero-eyebrow animate-fade-up" style={{ animationDelay: '.1s' }}>
               <span className="eyebrow-dot"></span>
-              Real gold. Allocated. Insured.
+              {t('hero_eyebrow')}
             </div>
 
             <h1 id="hero-heading" className="hero-title animate-fade-up" style={{ animationDelay: '.22s' }}>
-              The asset that<br />
-              built <em>empires,</em><br />
-              now builds yours
+              {t('hero_title_1')}<br />
+              {t('hero_title_2')} <em>{t('hero_title_3')}</em><br />
+              {t('hero_title_4')}
             </h1>
 
             <p className="hero-sub animate-fade-up" style={{ animationDelay: '.34s' }}>
-              Pharaohs stacked it. Central banks hoard it.<br />
-              Own real gold from $1,000 — tracked by serial number, stored in a certified vault.
+              {t('hero_sub_1')}<br />
+              {t('hero_sub_2')}
             </p>
 
             <div className="hero-actions animate-fade-up" style={{ animationDelay: '.46s' }}>
               <Link className="btn btn-gold btn-lg" href="/signup">
-                Start buying gold
+                {t('hero_cta_primary')}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
               </Link>
               <button className="btn btn-ghost btn-lg" onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })}>
-                See how it works
+                {t('hero_cta_secondary')}
               </button>
             </div>
           </div>

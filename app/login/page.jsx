@@ -3,20 +3,10 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import API from '@/src/lib/api';
-
-function validateEmail(val) {
-  if (!val) return 'Email address is required';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Please enter a valid email address';
-  return '';
-}
-
-function validatePassword(val) {
-  if (!val) return 'Password is required';
-  if (val.length < 6) return 'Password must be at least 6 characters';
-  return '';
-}
+import { SUPPORTED_LANGS, useI18n } from '@/src/lib/i18n';
 
 export default function LoginPage() {
+  const { lang, setLang, t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailErr, setEmailErr] = useState('');
@@ -26,6 +16,18 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
 
   const canSubmit = useMemo(() => !loading, [loading]);
+
+  function validateEmail(val) {
+    if (!val) return t('err_email_required');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return t('err_email_invalid');
+    return '';
+  }
+
+  function validatePassword(val) {
+    if (!val) return t('err_password_required');
+    if (val.length < 6) return t('err_password_min_6');
+    return '';
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -40,12 +42,12 @@ export default function LoginPage() {
     try {
       const { ok, data } = await API.login(email.trim(), password);
       if (!ok || !data?.success) {
-        const msg = data?.message || (data?.errors?.[0]?.msg ?? 'Unable to sign in');
+        const msg = data?.message || (data?.errors?.[0]?.msg ?? t('err_unable_to_sign_in'));
         setToast({ type: 'error', msg });
         return;
       }
 
-      setToast({ type: 'success', msg: 'Signed in successfully! Redirecting…' });
+      setToast({ type: 'success', msg: t('login_success_redirect') });
 
       if (data.user?.role === 'admin') {
         window.location.href = '/admin';
@@ -53,7 +55,7 @@ export default function LoginPage() {
         window.location.href = '/dashboard';
       }
     } catch (err) {
-      setToast({ type: 'error', msg: err?.message || 'Network error. Please try again.' });
+      setToast({ type: 'error', msg: err?.message || t('err_network_try_again') });
     } finally {
       setLoading(false);
     }
@@ -68,7 +70,18 @@ export default function LoginPage() {
             AURUM VAULT
           </Link>
           <div className="nav-actions">
-            <Link className="btn-text" href="/signup">Get Started</Link>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              aria-label={t('nav_language')}
+              className="btn-text"
+              style={{ border: '1px solid var(--border-dim)', borderRadius: 10, height: 38, padding: '0 10px', background: 'rgba(0,0,0,0.25)' }}
+            >
+              {SUPPORTED_LANGS.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+            <Link className="btn-text" href="/signup">{t('nav_get_started')}</Link>
           </div>
         </div>
       </nav>
@@ -91,7 +104,7 @@ export default function LoginPage() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
                 <path d="M21 12a9 9 0 1 1-18 0" />
               </svg>
-              <span>Signing in…</span>
+              <span>{t('login_signing_in')}</span>
             </div>
           </div>
         ) : null}
@@ -107,17 +120,17 @@ export default function LoginPage() {
 
             <div style={{ borderLeft: '2px solid var(--border-gold)', paddingLeft: '1.5rem' }}>
               <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontStyle: 'italic', lineHeight: 1.75, color: 'var(--text-1)', marginBottom: '0.8rem' }}>
-                “Gold is money. Everything else is credit.”
+                {t('quote_gold_money')}
               </p>
-              <cite style={{ fontSize: 12, color: 'var(--text-2)', fontStyle: 'normal', letterSpacing: '0.06em' }}>— J.P. Morgan</cite>
+              <cite style={{ fontSize: 12, color: 'var(--text-2)', fontStyle: 'normal', letterSpacing: '0.06em' }}>{t('quote_jp_morgan')}</cite>
             </div>
           </div>
         </section>
 
         <section className="auth-right" style={{ background: 'var(--bg-0)', padding: '3rem 2.5rem', overflowY: 'auto' }}>
           <div style={{ width: '100%', maxWidth: 440, paddingTop: '1rem' }}>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.4rem', fontWeight: 400, marginBottom: 10 }}>Welcome back</h1>
-            <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>Sign in to view your vault and manage your gold.</p>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.4rem', fontWeight: 400, marginBottom: 10 }}>{t('login_title')}</h1>
+            <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>{t('login_subtitle')}</p>
 
             {toast ? (
               <div style={{ marginBottom: 14, border: '1px solid var(--border-dim)', borderRadius: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', color: toast.type === 'error' ? 'var(--red)' : 'var(--green)' }}>
@@ -127,7 +140,7 @@ export default function LoginPage() {
 
             <form onSubmit={onSubmit}>
               <div style={{ marginBottom: 14 }}>
-                <label htmlFor="email" style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Email</label>
+                <label htmlFor="email" style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_email')}</label>
                 <input
                   id="email"
                   value={email}
@@ -140,7 +153,7 @@ export default function LoginPage() {
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label htmlFor="password" style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Password</label>
+                <label htmlFor="password" style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_password')}</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     id="password"
@@ -152,7 +165,7 @@ export default function LoginPage() {
                     autoComplete="current-password"
                   />
                   <button type="button" onClick={() => setShowPw((v) => !v)} style={{ position: 'absolute', right: 8, top: 8, width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-dim)', background: 'transparent', color: 'var(--text-2)' }}>
-                    {showPw ? 'Hide' : 'Show'}
+                    {showPw ? t('action_hide') : t('action_show')}
                   </button>
                 </div>
                 {passErr ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{passErr}</div> : null}
@@ -166,18 +179,19 @@ export default function LoginPage() {
               >
                 {loading ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                    <span>Signing in</span>
+                    <span>{t('login_signing_in')}</span>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
                       <path d="M21 12a9 9 0 1 1-18 0" />
                     </svg>
                   </span>
                 ) : (
-                  'Sign In'
+                  t('action_sign_in')
                 )}
               </button>
 
               <p style={{ marginTop: 16, color: 'var(--text-2)', fontSize: 13 }}>
-                Don’t have an account? <Link href="/signup" style={{ color: 'var(--gold)' }}>Create one</Link>
+                {t('login_no_account')}{' '}
+                <Link href="/signup" style={{ color: 'var(--gold)' }}>{t('action_create_one')}</Link>
               </p>
             </form>
           </div>
