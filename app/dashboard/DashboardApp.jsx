@@ -33,7 +33,7 @@ function getDisplayName(user) {
   return String(user.email || '—');
 }
 
-const ALLOWED_TABS = new Set(['portfolio', 'buy', 'sell', 'transactions', 'autoinvest', 'profile', 'support']);
+const ALLOWED_TABS = new Set(['portfolio', 'buy', 'sell', 'transactions', 'withdraw', 'staking', 'autoinvest', 'profile', 'support']);
 
 const COUNTRIES = [
   { code: 'AF', name: 'Afghanistan' },
@@ -864,6 +864,8 @@ export default function DashboardApp() {
           <Link href="/dashboard/buy" className={linkClass('buy')}>Buy Gold</Link>
           <Link href="/dashboard/sell" className={linkClass('sell')}>Sell Gold</Link>
           <Link href="/dashboard/transactions" className={linkClass('transactions')}>Transactions</Link>
+          <Link href="/dashboard/withdraw" className={linkClass('withdraw')}>Withdraw</Link>
+          <Link href="/dashboard/staking" className={linkClass('staking')}>Gold Staking</Link>
           <Link href="/dashboard/autoinvest" className={linkClass('autoinvest')}>Auto-Invest</Link>
           <Link href="/dashboard/profile" className={linkClass('profile')}>Profile & KYC</Link>
           <Link href="/dashboard/support" className={linkClass('support')}>Support</Link>
@@ -939,8 +941,10 @@ export default function DashboardApp() {
               </tbody>
             </table>
           </div>
+        </section>
 
-          <div className="section-heading" style={{ marginTop: 18 }}>Withdraw</div>
+        <section className={activeTab === 'withdraw' ? 'tab-panel active' : 'tab-panel'}>
+          <div className="page-title">Withdraw</div>
           <div className="stat-card" style={{ padding: 16 }}>
             <div style={{ display: 'grid', gap: 10, maxWidth: 620 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -974,8 +978,10 @@ export default function DashboardApp() {
               {wdMsg ? <div style={{ fontSize: 13, color: wdMsg.toLowerCase().includes('fail') ? 'var(--red)' : 'var(--text-2)' }}>{wdMsg}</div> : null}
             </div>
           </div>
+        </section>
 
-          <div className="section-heading" style={{ marginTop: 18 }}>Gold staking</div>
+        <section className={activeTab === 'staking' ? 'tab-panel active' : 'tab-panel'}>
+          <div className="page-title">Gold Staking</div>
           <div className="stat-card" style={{ padding: 16 }}>
             <div style={{ display: 'grid', gap: 12 }}>
               <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
