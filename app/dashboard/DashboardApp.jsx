@@ -117,12 +117,25 @@ export default function DashboardApp() {
   const [payOptionOpen, setPayOptionOpen] = useState(false);
   const [payOptionError, setPayOptionError] = useState('');
 
+  const [bankCountryOpen, setBankCountryOpen] = useState(false);
+  const [bankCountry, setBankCountry] = useState('');
+  const [bankCountryError, setBankCountryError] = useState('');
+  const [generatingOpen, setGeneratingOpen] = useState(false);
+  const [generatingDoneOpen, setGeneratingDoneOpen] = useState(false);
+  const generatingTimerRef = useRef(null);
+
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState('Confirm');
   const [confirmBody, setConfirmBody] = useState(null);
   const confirmActionRef = useRef(null);
 
   const pollTimersRef = useRef({ price: null, support: null });
+
+  useEffect(() => {
+    return () => {
+      if (generatingTimerRef.current) clearTimeout(generatingTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     document.body.classList.add('dashboard-body');
@@ -425,6 +438,31 @@ export default function DashboardApp() {
     }
     setDepositOpen(false);
     setPayOptionOpen(true);
+  }
+
+  function startBankTransferFlow() {
+    setPayOptionError('');
+    setBankCountry('');
+    setBankCountryError('');
+    setPayOptionOpen(false);
+    setBankCountryOpen(true);
+  }
+
+  function beginGeneratingAccount() {
+    if (!bankCountry) {
+      setBankCountryError('Select a country');
+      return;
+    }
+    setBankCountryError('');
+    setBankCountryOpen(false);
+    setGeneratingDoneOpen(false);
+    setGeneratingOpen(true);
+
+    if (generatingTimerRef.current) clearTimeout(generatingTimerRef.current);
+    generatingTimerRef.current = setTimeout(() => {
+      setGeneratingOpen(false);
+      setGeneratingDoneOpen(true);
+    }, 5000);
   }
 
   useEffect(() => {
@@ -915,11 +953,7 @@ export default function DashboardApp() {
               <button
                 className="btn-action gold"
                 onClick={() => {
-                  setPayOptionError('');
-                  onDeposit()
-                    .then(() => {})
-                    .catch((e) => setPayOptionError(e.message))
-                    .finally(() => setPayOptionOpen(false));
+                  startBankTransferFlow();
                 }}
                 style={{ height: 56 }}
               >
@@ -935,6 +969,85 @@ export default function DashboardApp() {
               </button>
               <button className="btn-action" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setPayOptionOpen(false)}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {bankCountryOpen ? (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 76, display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setBankCountryOpen(false)}>
+          <div style={{ width: 'min(520px, 100%)', background: 'rgba(17,17,17,0.9)', border: '1px solid var(--border-dim)', borderRadius: 18, padding: 16 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-0)' }}>Select country</div>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 12px', height: 36 }} onClick={() => setBankCountryOpen(false)}>Close</button>
+            </div>
+
+            <div style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 12 }}>
+              Deposit amount: <strong style={{ color: 'var(--text-0)' }}>{fmtMoney(parseFloat(String(depositAmount || '0')) || 0)}</strong>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Country</label>
+              <div className="input-wrap select-wrap">
+                <select className="form-input form-select" value={bankCountry} onChange={(e) => setBankCountry(e.target.value)}>
+                  <option value="">Select country…</option>
+                  <option value="NG">Nigeria</option>
+                  <option value="US">United States</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="CA">Canada</option>
+                </select>
+                <svg className="select-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+            </div>
+
+            <button className="btn-action gold" onClick={beginGeneratingAccount}>Continue</button>
+            {bankCountryError ? <div style={{ marginTop: 10, fontSize: 13, color: 'var(--red)' }}>{bankCountryError}</div> : null}
+
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => { setBankCountryOpen(false); setPayOptionOpen(true); }}>
+                Back
+              </button>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setBankCountryOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {generatingOpen ? (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 77, display: 'grid', placeItems: 'center', padding: 16 }}>
+          <div style={{ width: 'min(520px, 100%)', background: 'rgba(17,17,17,0.9)', border: '1px solid var(--border-dim)', borderRadius: 18, padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-0)' }}>Generating account</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)', color: 'var(--text-1)', fontSize: 13 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
+                <path d="M21 12a9 9 0 1 1-18 0" />
+              </svg>
+              <span>Generating account…</span>
+            </div>
+            <div style={{ marginTop: 12, color: 'var(--text-2)', fontSize: 13 }}>
+              Please wait while we generate your bank transfer details.
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {generatingDoneOpen ? (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 78, display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setGeneratingDoneOpen(false)}>
+          <div style={{ width: 'min(520px, 100%)', background: 'rgba(17,17,17,0.9)', border: '1px solid var(--border-dim)', borderRadius: 18, padding: 16 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-0)' }}>Deposit details</div>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 12px', height: 36 }} onClick={() => setGeneratingDoneOpen(false)}>Close</button>
+            </div>
+            <div style={{ color: 'var(--text-1)', fontSize: 13, lineHeight: 1.5 }}>
+              Account details will be sent to your email to complete your deposit.
+            </div>
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button className="btn-action gold" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setGeneratingDoneOpen(false)}>
+                Done
               </button>
             </div>
           </div>
