@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import API from '@/src/lib/api';
+import { SUPPORTED_LANGS, useI18n } from '@/src/lib/i18n';
 
 function isEmail(v) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -13,6 +14,7 @@ function digitsOnly(v) {
 }
 
 export default function SignupPage() {
+  const { lang, setLang, t } = useI18n();
   const [step, setStep] = useState(1);
 
   const [countries, setCountries] = useState([]);
@@ -93,15 +95,15 @@ export default function SignupPage() {
 
   function validateStep1() {
     const e = {};
-    if (!countryValue) e.country = 'Please select your country';
-    if (!email.trim() || !isEmail(email.trim())) e.email = 'Please enter a valid email address';
+    if (!countryValue) e.country = t('err_country_required');
+    if (!email.trim() || !isEmail(email.trim())) e.email = t('err_email_invalid');
 
     const d = digitsOnly(phone);
-    if (!d || d.length < 7) e.phone = 'Please enter a valid phone number';
+    if (!d || d.length < 7) e.phone = t('err_phone_invalid');
 
-    if (password.length < 8) e.password = 'Password must be at least 8 characters';
-    if (!confirm || confirm !== password) e.confirm = 'Passwords do not match';
-    if (!terms) e.terms = 'You must accept the Terms of Service to continue';
+    if (password.length < 8) e.password = t('err_password_min_8');
+    if (!confirm || confirm !== password) e.confirm = t('err_passwords_no_match');
+    if (!terms) e.terms = t('err_terms_required');
 
     setErr(e);
     return Object.keys(e).length === 0;
@@ -109,22 +111,22 @@ export default function SignupPage() {
 
   function validateStep2Otp() {
     const e = {};
-    if (!otp.trim()) e.otp = 'Enter the code sent to your email';
+    if (!otp.trim()) e.otp = t('err_otp_required');
     setErr(e);
     return Object.keys(e).length === 0;
   }
 
   function validateStep3() {
     const e = {};
-    if (!fname.trim() || fname.trim().length < 2) e.fname = 'Please enter your first name';
-    if (!lname.trim() || lname.trim().length < 2) e.lname = 'Please enter your last name';
-    if (!dob) e.dob = 'Please enter your date of birth';
+    if (!fname.trim() || fname.trim().length < 2) e.fname = t('err_first_name_required');
+    if (!lname.trim() || lname.trim().length < 2) e.lname = t('err_last_name_required');
+    if (!dob) e.dob = t('err_dob_required');
     if (dob) {
       const age = (Date.now() - new Date(dob)) / (1000 * 60 * 60 * 24 * 365.25);
-      if (age < 18) e.dob = 'You must be 18 years or older to open an account';
+      if (age < 18) e.dob = t('err_age_18');
     }
-    if (!state) e.state = 'Please select your state of residence';
-    if (!gender) e.gender = 'Please select an option';
+    if (!state) e.state = t('err_state_required');
+    if (!gender) e.gender = t('err_gender_required');
 
     setErr(e);
     return Object.keys(e).length === 0;
@@ -135,10 +137,10 @@ export default function SignupPage() {
     try {
       const res = await API.post('/auth/email-otp/request', { email: email.trim() });
       const data = await res?.json?.().catch(() => ({}));
-      if (!res?.ok || !data?.success) throw new Error(data?.message || data?.errors?.[0]?.msg || 'Unable to send code');
+      if (!res?.ok || !data?.success) throw new Error(data?.message || data?.errors?.[0]?.msg || t('err_unable_to_send_code'));
       go(2);
     } catch (ex) {
-      setErr((e) => ({ ...e, toast: ex?.message || 'Unable to send code' }));
+      setErr((e) => ({ ...e, toast: ex?.message || t('err_unable_to_send_code') }));
     } finally {
       setLoading((s) => ({ ...s, otpReq: false }));
     }
@@ -149,9 +151,9 @@ export default function SignupPage() {
     try {
       const res = await API.post('/auth/email-otp/request', { email: email.trim() });
       const data = await res?.json?.().catch(() => ({}));
-      if (!res?.ok || !data?.success) throw new Error(data?.message || data?.errors?.[0]?.msg || 'Unable to resend code');
+      if (!res?.ok || !data?.success) throw new Error(data?.message || data?.errors?.[0]?.msg || t('err_unable_to_resend_code'));
     } catch (ex) {
-      setErr((e) => ({ ...e, toast: ex?.message || 'Unable to resend code' }));
+      setErr((e) => ({ ...e, toast: ex?.message || t('err_unable_to_resend_code') }));
     } finally {
       setLoading((s) => ({ ...s, resend: false }));
     }
@@ -164,10 +166,10 @@ export default function SignupPage() {
     try {
       const res = await API.post('/auth/email-otp/verify', { email: email.trim(), otp: otp.trim() });
       const data = await res?.json?.().catch(() => ({}));
-      if (!res?.ok || !data?.success) throw new Error(data?.message || data?.errors?.[0]?.msg || 'Invalid code');
+      if (!res?.ok || !data?.success) throw new Error(data?.message || data?.errors?.[0]?.msg || t('err_invalid_code'));
       go(3);
     } catch (ex) {
-      setErr((e) => ({ ...e, otp: ex?.message || 'Invalid code' }));
+      setErr((e) => ({ ...e, otp: ex?.message || t('err_invalid_code') }));
     } finally {
       setLoading((s) => ({ ...s, otpVerify: false }));
     }
@@ -194,7 +196,7 @@ export default function SignupPage() {
 
       const res = await API.post('/auth/register', payload);
       const data = await res?.json?.().catch(() => ({}));
-      if (!res?.ok || !data?.success) throw new Error(data?.message || data?.errors?.[0]?.msg || 'Registration failed');
+      if (!res?.ok || !data?.success) throw new Error(data?.message || data?.errors?.[0]?.msg || t('err_registration_failed'));
 
       API.setTokens(data.accessToken, data.refreshToken);
       API.setUser(data.user);
@@ -204,7 +206,7 @@ export default function SignupPage() {
         window.location.href = '/dashboard';
       }, 1200);
     } catch (ex) {
-      setErr((e) => ({ ...e, toast: ex?.message || 'Something went wrong.' }));
+      setErr((e) => ({ ...e, toast: ex?.message || t('err_something_went_wrong') }));
     } finally {
       setLoading((s) => ({ ...s, register: false }));
     }
@@ -219,7 +221,18 @@ export default function SignupPage() {
             AURUM VAULT
           </Link>
           <div className="nav-actions">
-            <Link className="btn-text" href="/login">Sign In</Link>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              aria-label={t('nav_language')}
+              className="btn-text"
+              style={{ border: '1px solid var(--border-dim)', borderRadius: 10, height: 38, padding: '0 10px', background: 'rgba(0,0,0,0.25)' }}
+            >
+              {SUPPORTED_LANGS.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+            <Link className="btn-text" href="/login">{t('nav_sign_in')}</Link>
           </div>
         </div>
       </nav>
@@ -242,7 +255,7 @@ export default function SignupPage() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
                 <path d="M21 12a9 9 0 1 1-18 0" />
               </svg>
-              <span>Loading…</span>
+              <span>{t('loading')}</span>
             </div>
           </div>
         ) : null}
@@ -263,10 +276,10 @@ export default function SignupPage() {
                     <div style={{ width: 30, height: 30, borderRadius: 999, border: '1px solid var(--border-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, background: step === n ? 'var(--gold)' : n < step ? 'rgba(201,168,76,0.15)' : 'transparent', color: step === n ? '#0A0A0A' : n < step ? 'var(--gold)' : 'var(--text-2)' }}>{n}</div>
                     <div>
                       <strong style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text-0)', marginBottom: 2 }}>
-                        {n === 1 ? 'Account details' : n === 2 ? 'Email verification' : n === 3 ? 'Personal info' : 'Start investing'}
+                        {n === 1 ? t('signup_step_1_title') : n === 2 ? t('signup_step_2_title') : n === 3 ? t('signup_step_3_title') : t('signup_step_4_title')}
                       </strong>
                       <span style={{ fontSize: 12, color: 'var(--text-2)' }}>
-                        {n === 1 ? 'Country, email, phone' : n === 2 ? 'One-time code' : n === 3 ? 'Name, date of birth' : 'Your vault is ready'}
+                        {n === 1 ? t('signup_step_1_desc') : n === 2 ? t('signup_step_2_desc') : n === 3 ? t('signup_step_3_desc') : t('signup_step_4_desc')}
                       </span>
                     </div>
                   </div>
@@ -275,9 +288,9 @@ export default function SignupPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>✓ Fully insured gold storage</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>✓ Real-time pricing</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>✓ Withdraw anytime</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>✓ {t('signup_benefit_1')}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>✓ {t('signup_benefit_2')}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>✓ {t('signup_benefit_3')}</div>
             </div>
           </div>
         </section>
@@ -288,7 +301,7 @@ export default function SignupPage() {
               <div style={{ flex: 1, height: 3, background: 'var(--bg-4)', borderRadius: 2, overflow: 'hidden' }}>
                 <div style={{ width: `${[0, 25, 50, 75, 100][step]}%`, height: '100%', background: 'linear-gradient(90deg, var(--gold-dark), var(--gold))', borderRadius: 2, transition: 'width 0.5s ease' }} />
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>Step {step > 4 ? 4 : step} of 4</div>
+              <div style={{ fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{t('signup_step_label')} {step > 4 ? 4 : step} {t('signup_of')} 4</div>
             </div>
 
             {err.toast ? (
@@ -299,13 +312,13 @@ export default function SignupPage() {
 
             {step === 1 ? (
               <>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 400, marginBottom: 10 }}>Create your account</h1>
-                <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>Open your Aurum Vault account in under 2 minutes.</p>
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 400, marginBottom: 10 }}>{t('signup_title')}</h1>
+                <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>{t('signup_subtitle')}</p>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Country</label>
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_country')}</label>
                   <select disabled={loadingInit} value={countryValue} onChange={(e) => setCountryValue(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.country ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)', opacity: loadingInit ? 0.7 : 1 }}>
-                    <option value="">Select your country</option>
+                    <option value="">{t('placeholder_select_country')}</option>
                     {countries.map((c) => {
                       const dial = String(c.dial).replace(/[^0-9]/g, '');
                       const val = `${c.code}|${dial}|${c.name}`;
@@ -320,13 +333,13 @@ export default function SignupPage() {
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Email</label>
-                  <input value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setErr((x) => ({ ...x, email: !email.trim() || !isEmail(email.trim()) ? 'Please enter a valid email address' : '' }))} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.email ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_email')}</label>
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setErr((x) => ({ ...x, email: !email.trim() || !isEmail(email.trim()) ? t('err_email_invalid') : '' }))} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.email ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
                   {err.email ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.email}</div> : null}
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Phone</label>
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_phone')}</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '86px 1fr', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, border: '1px solid var(--border-dim)', background: 'var(--bg-1)', color: 'var(--text-2)' }}>{dialPrefix}</div>
                     <input value={phone} onChange={(e) => setPhone(digitsOnly(e.target.value).slice(0, 11))} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.phone ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
@@ -335,13 +348,13 @@ export default function SignupPage() {
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Password</label>
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_password')}</label>
                   <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.password ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
                   {err.password ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.password}</div> : null}
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Confirm password</label>
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_confirm_password')}</label>
                   <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.confirm ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
                   {err.confirm ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.confirm}</div> : null}
                 </div>
@@ -349,7 +362,7 @@ export default function SignupPage() {
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>
                     <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
-                    I agree to the Terms of Service and Privacy Policy
+                    {t('signup_terms')}
                   </label>
                   {err.terms ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.terms}</div> : null}
                 </div>
@@ -366,38 +379,40 @@ export default function SignupPage() {
                 >
                   {loading.otpReq ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                      <span>Sending code</span>
+                      <span>{t('signup_sending_code')}</span>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
                         <path d="M21 12a9 9 0 1 1-18 0" />
                       </svg>
                     </span>
                   ) : (
-                    'Continue'
+                    t('action_continue')
                   )}
                 </button>
 
                 <p style={{ marginTop: 16, color: 'var(--text-2)', fontSize: 13 }}>
-                  Already have an account? <Link href="/login" style={{ color: 'var(--gold)' }}>Sign in</Link>
+                  {t('signup_have_account')}{' '}
+                  <Link href="/login" style={{ color: 'var(--gold)' }}>{t('action_sign_in')}</Link>
                 </p>
               </>
             ) : null}
 
             {step === 2 ? (
               <>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 400, marginBottom: 10 }}>Verify your email</h1>
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 400, marginBottom: 10 }}>{t('signup_verify_email_title')}</h1>
                 <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>
-                  We sent a one-time code to <strong>{email.trim() || 'your email'}</strong>
+                  {t('signup_otp_sent_to')}{' '}
+                  <strong>{email.trim() || t('signup_your_email')}</strong>
                 </p>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>One-time code</label>
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_otp_code')}</label>
                   <input value={otp} onChange={(e) => setOtp(digitsOnly(e.target.value).slice(0, 6))} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.otp ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)', letterSpacing: '0.2em' }} />
                   {err.otp ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.otp}</div> : null}
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <button type="button" className="btn btn-ghost" onClick={() => go(1)} style={{ flex: 1, justifyContent: 'center', padding: '14px 16px', borderRadius: 12 }}>
-                    Back
+                    {t('action_back')}
                   </button>
                   <button
                     type="button"
@@ -408,69 +423,69 @@ export default function SignupPage() {
                   >
                     {loading.otpVerify ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                        <span>Verifying</span>
+                        <span>{t('signup_verifying')}</span>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
                           <path d="M21 12a9 9 0 1 1-18 0" />
                         </svg>
                       </span>
                     ) : (
-                      'Verify'
+                      t('action_verify')
                     )}
                   </button>
                 </div>
 
                 <button type="button" disabled={loading.resend} onClick={resendOtp} className="btn" style={{ marginTop: 12, width: '100%', justifyContent: 'center', padding: '12px 16px', borderRadius: 12, background: 'transparent', border: '1px dashed var(--border-dim)', color: 'var(--text-2)', opacity: loading.resend ? 0.6 : 1 }}>
-                  {loading.resend ? 'Resending…' : 'Resend code'}
+                  {loading.resend ? t('signup_resending') : t('signup_resend_code')}
                 </button>
               </>
             ) : null}
 
             {step === 3 ? (
               <>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 400, marginBottom: 10 }}>Personal information</h1>
-                <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>Tell us a bit about yourself.</p>
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 400, marginBottom: 10 }}>{t('signup_personal_info_title')}</h1>
+                <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>{t('signup_personal_info_subtitle')}</p>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div style={{ marginBottom: 14 }}>
-                    <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>First name</label>
+                    <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_first_name')}</label>
                     <input value={fname} onChange={(e) => setFname(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.fname ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
                     {err.fname ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.fname}</div> : null}
                   </div>
                   <div style={{ marginBottom: 14 }}>
-                    <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Last name</label>
+                    <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_last_name')}</label>
                     <input value={lname} onChange={(e) => setLname(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.lname ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
                     {err.lname ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.lname}</div> : null}
                   </div>
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>Date of birth</label>
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_dob')}</label>
                   <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.dob ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
                   {err.dob ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.dob}</div> : null}
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>State of residence</label>
+                  <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-2)' }}>{t('label_state_residence')}</label>
                   {stateOptions ? (
                     <select value={state} onChange={(e) => setStateVal(e.target.value)} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.state ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }}>
-                      <option value="">Select your state</option>
+                      <option value="">{t('placeholder_select_state')}</option>
                       {stateOptions.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
                   ) : (
-                    <input value={state} onChange={(e) => setStateVal(e.target.value)} placeholder="Enter your state" style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.state ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
+                    <input value={state} onChange={(e) => setStateVal(e.target.value)} placeholder={t('placeholder_enter_state')} style={{ width: '100%', padding: '12px 12px', borderRadius: 12, border: `1px solid ${err.state ? 'rgba(224,82,82,0.5)' : 'var(--border-dim)'}`, background: 'var(--bg-1)', color: 'var(--text-0)' }} />
                   )}
                   {err.state ? <div style={{ marginTop: 6, fontSize: 12, color: 'var(--red)' }}>{err.state}</div> : null}
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ marginBottom: 6, color: 'var(--text-2)' }}>Gender</div>
+                  <div style={{ marginBottom: 6, color: 'var(--text-2)' }}>{t('label_gender')}</div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {['male', 'female', 'other'].map((g) => (
                       <label key={g} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid var(--border-dim)', borderRadius: 999, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', color: 'var(--text-2)' }}>
                         <input type="radio" name="gender" checked={gender === g} onChange={() => setGender(g)} />
-                        {g.charAt(0).toUpperCase() + g.slice(1)}
+                        {t(`gender_${g}`)}
                       </label>
                     ))}
                   </div>
@@ -479,7 +494,7 @@ export default function SignupPage() {
 
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <button type="button" className="btn btn-ghost" onClick={() => go(2)} style={{ flex: 1, justifyContent: 'center', padding: '14px 16px', borderRadius: 12 }}>
-                    Back
+                    {t('action_back')}
                   </button>
                   <button
                     type="button"
@@ -490,13 +505,13 @@ export default function SignupPage() {
                   >
                     {loading.register ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                        <span>Creating</span>
+                        <span>{t('signup_creating')}</span>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 0.8s linear infinite' }}>
                           <path d="M21 12a9 9 0 1 1-18 0" />
                         </svg>
                       </span>
                     ) : (
-                      'Create account'
+                      t('signup_create_account')
                     )}
                   </button>
                 </div>
@@ -505,8 +520,8 @@ export default function SignupPage() {
 
             {step === 4 ? (
               <>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 400, marginBottom: 10 }}>Your vault is ready</h1>
-                <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>Redirecting you to your dashboard…</p>
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 400, marginBottom: 10 }}>{t('signup_done_title')}</h1>
+                <p style={{ color: 'var(--text-2)', marginBottom: 24 }}>{t('signup_done_subtitle')}</p>
               </>
             ) : null}
           </div>

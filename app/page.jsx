@@ -29,7 +29,7 @@ export default function HomePage() {
             <select
               value={lang}
               onChange={(e) => setLang(e.target.value)}
-              aria-label="Language"
+              aria-label={t('nav_language')}
               className="btn-text"
               style={{ border: '1px solid var(--border-dim)', borderRadius: 10, height: 38, padding: '0 10px', background: 'rgba(0,0,0,0.25)' }}
             >
