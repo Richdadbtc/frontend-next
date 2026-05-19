@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { Copy } from 'lucide-react';
 import API from '@/src/lib/api';
 
 function computeGreeting() {
@@ -318,8 +319,14 @@ export default function DashboardApp() {
   const [payOptionOpen, setPayOptionOpen] = useState(false);
   const [payOptionError, setPayOptionError] = useState('');
 
+  const [cryptoOpen, setCryptoOpen] = useState(false);
+  const [cryptoKind, setCryptoKind] = useState('BTC');
+  const [cryptoCopyMsg, setCryptoCopyMsg] = useState('');
+  const [cryptoSentOpen, setCryptoSentOpen] = useState(false);
+
   const [bankCountryOpen, setBankCountryOpen] = useState(false);
   const [bankCountry, setBankCountry] = useState('');
+  const [bankCountryQuery, setBankCountryQuery] = useState('');
   const [bankCountryError, setBankCountryError] = useState('');
   const [generatingOpen, setGeneratingOpen] = useState(false);
   const [generatingDoneOpen, setGeneratingDoneOpen] = useState(false);
@@ -644,9 +651,51 @@ export default function DashboardApp() {
   function startBankTransferFlow() {
     setPayOptionError('');
     setBankCountry('');
+    setBankCountryQuery('');
     setBankCountryError('');
     setPayOptionOpen(false);
     setBankCountryOpen(true);
+  }
+
+  function startCryptoFlow(kind) {
+    setPayOptionError('');
+    setCryptoCopyMsg('');
+    setCryptoKind(kind);
+    setPayOptionOpen(false);
+    setCryptoSentOpen(false);
+    setCryptoOpen(true);
+  }
+
+  async function copyCryptoAddress() {
+    const info = CRYPTO_PAYMENTS[cryptoKind];
+    const address = info?.address || '';
+    if (!address) return;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(address);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = address;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCryptoCopyMsg('Copied');
+      window.setTimeout(() => setCryptoCopyMsg(''), 1500);
+    } catch {
+      setCryptoCopyMsg('Unable to copy');
+      window.setTimeout(() => setCryptoCopyMsg(''), 2000);
+    }
+  }
+
+  function onCryptoPaymentSent() {
+    setCryptoOpen(false);
+    setCryptoSentOpen(true);
   }
 
   function beginGeneratingAccount() {
@@ -1139,14 +1188,14 @@ export default function DashboardApp() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
               <button
                 className="btn-action"
-                onClick={() => setPayOptionError('BTC deposits are coming soon. Please use Bank Transfer for now.')}
+                onClick={() => startCryptoFlow('BTC')}
                 style={{ height: 56 }}
               >
                 BTC
               </button>
               <button
                 className="btn-action"
-                onClick={() => setPayOptionError('USDT deposits are coming soon. Please use Bank Transfer for now.')}
+                onClick={() => startCryptoFlow('USDT')}
                 style={{ height: 56 }}
               >
                 USDT
@@ -1176,6 +1225,66 @@ export default function DashboardApp() {
         </div>
       ) : null}
 
+      {cryptoOpen ? (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 76, display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setCryptoOpen(false)}>
+          <div style={{ width: 'min(560px, 100%)', background: 'rgba(17,17,17,0.9)', border: '1px solid var(--border-dim)', borderRadius: 18, padding: 16 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-0)' }}>{cryptoKind} deposit</div>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 12px', height: 36 }} onClick={() => setCryptoOpen(false)}>Close</button>
+            </div>
+
+            <div style={{ color: 'var(--text-2)', fontSize: 13, marginBottom: 12 }}>
+              Deposit amount: <strong style={{ color: 'var(--text-0)' }}>{fmtMoney(parseFloat(String(depositAmount || '0')) || 0)}</strong>
+            </div>
+
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div style={{ padding: '12px 12px', borderRadius: 14, border: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                  <div>
+                    <div className="sc-label">Network</div>
+                    <div style={{ color: 'var(--text-0)', fontSize: 14, marginTop: 4 }}>{CRYPTO_PAYMENTS[cryptoKind]?.network || '—'}</div>
+                  </div>
+                  <button
+                    className="btn-action"
+                    style={{ width: 40, height: 40, padding: 0, display: 'grid', placeItems: 'center' }}
+                    onClick={copyCryptoAddress}
+                    aria-label="Copy wallet address"
+                    title="Copy"
+                  >
+                    <Copy size={16} />
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <div className="sc-label">Wallet address</div>
+                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid var(--border-dim)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-1)', fontSize: 13, wordBreak: 'break-all' }}>
+                    <span>{CRYPTO_PAYMENTS[cryptoKind]?.address || '—'}</span>
+                  </div>
+                  {cryptoCopyMsg ? <div style={{ marginTop: 8, fontSize: 12, color: cryptoCopyMsg === 'Copied' ? 'var(--green)' : 'var(--red)' }}>{cryptoCopyMsg}</div> : null}
+                </div>
+              </div>
+
+              <div style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.5 }}>
+                copy the address and make payment and click on payment sent botton to confirm payment
+              </div>
+
+              <button className="btn-action gold" onClick={onCryptoPaymentSent}>
+                Payment sent
+              </button>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <button className="btn-action" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => { setCryptoOpen(false); setPayOptionOpen(true); }}>
+                  Back
+                </button>
+                <button className="btn-action" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setCryptoOpen(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {bankCountryOpen ? (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 76, display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setBankCountryOpen(false)}>
           <div style={{ width: 'min(520px, 100%)', background: 'rgba(17,17,17,0.9)', border: '1px solid var(--border-dim)', borderRadius: 18, padding: 16 }} onClick={(e) => e.stopPropagation()}>
@@ -1190,13 +1299,25 @@ export default function DashboardApp() {
 
             <div className="form-group">
               <label className="form-label">Country</label>
+              <input
+                className="form-input"
+                value={bankCountryQuery}
+                onChange={(e) => setBankCountryQuery(e.target.value)}
+                placeholder="Search country"
+                style={{ marginBottom: 10 }}
+              />
               <div className="input-wrap select-wrap">
                 <select className="form-input form-select" value={bankCountry} onChange={(e) => setBankCountry(e.target.value)}>
                   <option value="">Select country…</option>
-                  <option value="NG">Nigeria</option>
-                  <option value="US">United States</option>
-                  <option value="GB">United Kingdom</option>
-                  <option value="CA">Canada</option>
+                  {COUNTRIES.filter((c) => {
+                    const q = String(bankCountryQuery || '').trim().toLowerCase();
+                    if (!q) return true;
+                    return String(c?.name || '').toLowerCase().includes(q) || String(c?.code || '').toLowerCase().includes(q);
+                  }).map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
                 <svg className="select-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
               </div>
@@ -1248,6 +1369,25 @@ export default function DashboardApp() {
             </div>
             <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="btn-action gold" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setGeneratingDoneOpen(false)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cryptoSentOpen ? (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 78, display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setCryptoSentOpen(false)}>
+          <div style={{ width: 'min(520px, 100%)', background: 'rgba(17,17,17,0.9)', border: '1px solid var(--border-dim)', borderRadius: 18, padding: 16 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-0)' }}>Payment confirmation</div>
+              <button className="btn-action" style={{ width: 'auto', padding: '0 12px', height: 36 }} onClick={() => setCryptoSentOpen(false)}>Close</button>
+            </div>
+            <div style={{ color: 'var(--text-1)', fontSize: 13, lineHeight: 1.5 }}>
+              We have received your confirmation. Your deposit will reflect after we verify the payment.
+            </div>
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button className="btn-action gold" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setCryptoSentOpen(false)}>
                 Done
               </button>
             </div>
