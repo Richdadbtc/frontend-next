@@ -340,6 +340,8 @@ export default function DashboardApp() {
   const [cryptoCopyMsg, setCryptoCopyMsg] = useState('');
   const [cryptoSentOpen, setCryptoSentOpen] = useState(false);
   const [cryptoAddresses, setCryptoAddresses] = useState({ btc: '', usdt: '' });
+  const [cryptoSentMsg, setCryptoSentMsg] = useState('');
+  const [cryptoSentMsgKind, setCryptoSentMsgKind] = useState('success');
 
   const [bankCountryOpen, setBankCountryOpen] = useState(false);
   const [bankCountry, setBankCountry] = useState('');
@@ -790,9 +792,31 @@ export default function DashboardApp() {
     }
   }
 
-  function onCryptoPaymentSent() {
-    setCryptoOpen(false);
-    setCryptoSentOpen(true);
+  async function onCryptoPaymentSent() {
+    setCryptoSentMsg('');
+    setCryptoSentMsgKind('success');
+
+    try {
+      const amt = parseFloat(String(depositAmount || ''));
+      if (!amt || Number.isNaN(amt) || amt < 1) {
+        throw new Error('Enter a valid amount');
+      }
+
+      const note = `Crypto deposit (${cryptoKind})`;
+      const res = await API.post('/payment/manual-deposit', { amount: amt, note });
+      const data = await res?.json?.().catch(() => ({}));
+      if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to submit deposit request');
+
+      setCryptoOpen(false);
+      setCryptoSentMsg('We have received your confirmation. Your deposit will reflect after we verify the payment.');
+      setCryptoSentMsgKind('success');
+      setCryptoSentOpen(true);
+      await loadTransactions(1).catch(() => {});
+    } catch (e) {
+      setCryptoSentMsg(String(e?.message || 'Unable to submit deposit request'));
+      setCryptoSentMsgKind('error');
+      setCryptoSentOpen(true);
+    }
   }
 
   function beginGeneratingAccount() {
@@ -810,6 +834,21 @@ export default function DashboardApp() {
       setGeneratingOpen(false);
       setGeneratingDoneOpen(true);
     }, 5000);
+  }
+
+  async function submitBankTransferDepositRequest() {
+    try {
+      const amt = parseFloat(String(depositAmount || ''));
+      if (!amt || Number.isNaN(amt) || amt < 1) return;
+
+      const note = bankCountry ? `Bank transfer deposit (${bankCountry})` : 'Bank transfer deposit';
+      const res = await API.post('/payment/manual-deposit', { amount: amt, note });
+      const data = await res?.json?.().catch(() => ({}));
+      if (!res?.ok || !data?.success) return;
+      await loadTransactions(1).catch(() => {});
+    } catch {
+      // ignore
+    }
   }
 
   useEffect(() => {
@@ -1590,7 +1629,10 @@ export default function DashboardApp() {
               Account details will be sent to your email to complete your deposit.
             </div>
             <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button className="btn-action gold" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setGeneratingDoneOpen(false)}>
+              <button className="btn-action gold" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => {
+                submitBankTransferDepositRequest().catch(() => {});
+                setGeneratingDoneOpen(false);
+              }}>
                 Done
               </button>
             </div>
@@ -1624,8 +1666,8 @@ export default function DashboardApp() {
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--text-0)' }}>Payment confirmation</div>
               <button className="btn-action" style={{ width: 'auto', padding: '0 12px', height: 36 }} onClick={() => setCryptoSentOpen(false)}>Close</button>
             </div>
-            <div style={{ color: 'var(--text-1)', fontSize: 13, lineHeight: 1.5 }}>
-              We have received your confirmation. Your deposit will reflect after we verify the payment.
+            <div style={{ color: cryptoSentMsgKind === 'error' ? 'var(--red)' : 'var(--text-1)', fontSize: 13, lineHeight: 1.5 }}>
+              {cryptoSentMsg || 'We have received your confirmation. Your deposit will reflect after we verify the payment.'}
             </div>
             <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="btn-action gold" style={{ width: 'auto', padding: '0 14px', height: 40 }} onClick={() => setCryptoSentOpen(false)}>
