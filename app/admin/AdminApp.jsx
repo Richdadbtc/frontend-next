@@ -6,7 +6,7 @@ import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import API from '@/src/lib/api';
 
-const ALLOWED_TABS = new Set(['dashboard', 'users', 'transactions', 'kyc', 'support', 'logs']);
+const ALLOWED_TABS = new Set(['dashboard', 'users', 'transactions', 'deposits', 'kyc', 'support', 'logs']);
 
 function tabFromPath(pathname) {
   const p = String(pathname || '');
@@ -58,6 +58,9 @@ export default function AdminApp() {
   const [txFrom, setTxFrom] = useState('');
   const [txTo, setTxTo] = useState('');
   const [txRows, setTxRows] = useState([]);
+
+  const [depositRows, setDepositRows] = useState([]);
+  const [depositError, setDepositError] = useState('');
 
   const [kycRows, setKycRows] = useState([]);
   const [logRows, setLogRows] = useState([]);
@@ -138,6 +141,36 @@ export default function AdminApp() {
     setTxRows(Array.isArray(data.transactions) ? data.transactions : []);
   }
 
+  async function loadDepositRequests() {
+    const res = await API.get('/admin/transactions?type=deposit&status=pending&page=1&limit=100');
+    const data = await res?.json?.().catch(() => ({}));
+    if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to load deposit requests');
+
+    const rows = Array.isArray(data.transactions) ? data.transactions : [];
+    setDepositRows(rows.filter((t) => t?.metadata?.method === 'manual'));
+  }
+
+  async function reviewDeposit(id, action) {
+    setDepositError('');
+    try {
+      let body = { action };
+      if (action === 'reject') {
+        const reason = window.prompt('Rejection reason');
+        if (!reason) return;
+        body = { action, reason };
+      }
+
+      const res = await API.put(`/admin/deposits/${encodeURIComponent(id)}/review`, body);
+      const data = await res?.json?.().catch(() => ({}));
+      if (!res?.ok || !data?.success) throw new Error(data?.message || 'Deposit review failed');
+
+      await loadDepositRequests();
+      await loadTransactions().catch(() => {});
+    } catch (e) {
+      setDepositError(e.message || 'Deposit review failed');
+    }
+  }
+
   async function loadKycQueue() {
     const res = await API.get('/admin/kyc-queue');
     const data = await res?.json?.().catch(() => ({}));
@@ -205,6 +238,7 @@ export default function AdminApp() {
     loadDailyVolume().catch(() => {});
     loadUsers().catch(() => {});
     loadTransactions().catch(() => {});
+    loadDepositRequests().catch(() => {});
     loadKycQueue().catch(() => {});
     loadSupportThreads().catch(() => {});
     loadLogs().catch(() => {});
@@ -286,6 +320,7 @@ export default function AdminApp() {
           {navLink('dashboard', 'Dashboard')}
           {navLink('users', 'Users')}
           {navLink('transactions', 'Transactions')}
+          {navLink('deposits', 'Deposit Requests')}
           {navLink('kyc', 'KYC Queue')}
           {navLink('support', 'Support')}
           {navLink('logs', 'Logs')}
@@ -336,6 +371,57 @@ export default function AdminApp() {
           <div className="section-heading">Daily Volume (30d)</div>
           <div className="chart-card">
             <canvas id="volume-chart" height="120" />
+          </div>
+        </section>
+
+        <section className={`tab-panel ${activeTab === 'deposits' ? 'active' : ''}`} id="tab-deposits">
+          <div className="page-title">Deposit Requests</div>
+          <div className="filter-bar">
+            <button className="filter-btn" onClick={() => loadDepositRequests().catch(() => {})}>Refresh</button>
+          </div>
+
+          {depositError ? <div className="action-error" style={{ padding: '10px 12px', color: 'var(--red)' }}>{depositError}</div> : null}
+
+          <div className="tx-table-wrap">
+            <table className="tx-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Amount</th>
+                  <th>Note</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!depositRows.length ? (
+                  <tr>
+                    <td colSpan={5} className="empty-row">No pending deposit requests</td>
+                  </tr>
+                ) : (
+                  depositRows.map((t) => {
+                    const u = t.userId;
+                    const uname = u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : '';
+                    const label = uname || u?.email || '—';
+                    const note = t?.metadata?.note ? String(t.metadata.note) : '—';
+                    return (
+                      <tr key={t._id}>
+                        <td>{label}</td>
+                        <td>{fmtMoney(t.netAmount ?? t.amount)}</td>
+                        <td style={{ maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{note}</td>
+                        <td>{fmtTime(t.createdAt)}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button className="btn-action gold" onClick={() => reviewDeposit(t._id, 'approve')}>Approve</button>
+                            <button className="btn-action" onClick={() => reviewDeposit(t._id, 'reject')}>Reject</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
 
