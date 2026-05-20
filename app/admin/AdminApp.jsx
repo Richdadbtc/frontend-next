@@ -6,7 +6,7 @@ import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import API from '@/src/lib/api';
 
-const ALLOWED_TABS = new Set(['dashboard', 'users', 'transactions', 'deposits', 'kyc', 'support', 'logs']);
+const ALLOWED_TABS = new Set(['dashboard', 'users', 'transactions', 'deposits', 'kyc', 'support', 'logs', 'settings']);
 
 function tabFromPath(pathname) {
   const p = String(pathname || '');
@@ -72,6 +72,37 @@ export default function AdminApp() {
   const [supportInput, setSupportInput] = useState('');
   const [supportError, setSupportError] = useState('');
   const supportPollRef = useRef(null);
+
+  const [btcAddress, setBtcAddress] = useState('');
+  const [usdtAddress, setUsdtAddress] = useState('');
+  const [settingsMsg, setSettingsMsg] = useState('');
+  const [settingsErr, setSettingsErr] = useState('');
+
+  async function loadSettings() {
+    const res = await API.get('/admin/settings');
+    const data = await res?.json?.().catch(() => ({}));
+    if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to load settings');
+    setBtcAddress(data?.settings?.btcAddress || '');
+    setUsdtAddress(data?.settings?.usdtAddress || '');
+  }
+
+  async function saveCryptoAddresses() {
+    setSettingsMsg('');
+    setSettingsErr('');
+    try {
+      const res = await API.put('/admin/settings/crypto-addresses', {
+        btcAddress: String(btcAddress || '').trim(),
+        usdtAddress: String(usdtAddress || '').trim(),
+      });
+      const data = await res?.json?.().catch(() => ({}));
+      if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to save settings');
+      setBtcAddress(data?.settings?.btcAddress || '');
+      setUsdtAddress(data?.settings?.usdtAddress || '');
+      setSettingsMsg('Saved');
+    } catch (e) {
+      setSettingsErr(e.message || 'Unable to save settings');
+    }
+  }
 
   useEffect(() => {
     const u = API.getUser();
@@ -261,6 +292,7 @@ export default function AdminApp() {
     loadKycQueue().catch(() => {});
     loadSupportThreads().catch(() => {});
     loadLogs().catch(() => {});
+    loadSettings().catch(() => {});
 
     return () => {
       if (supportPollRef.current) clearInterval(supportPollRef.current);
@@ -343,6 +375,7 @@ export default function AdminApp() {
           {navLink('kyc', 'KYC Queue')}
           {navLink('support', 'Support')}
           {navLink('logs', 'Logs')}
+          {navLink('settings', 'Settings')}
         </nav>
         <button className="sb-signout" onClick={() => API.logout()}>Sign Out</button>
       </aside>
@@ -390,6 +423,31 @@ export default function AdminApp() {
           <div className="section-heading">Daily Volume (30d)</div>
           <div className="chart-card">
             <canvas id="volume-chart" height="120" />
+          </div>
+        </section>
+
+        <section className={`tab-panel ${activeTab === 'settings' ? 'active' : ''}`} id="tab-settings">
+          <div className="page-title">Settings</div>
+          <div className="section-heading" style={{ marginTop: 0 }}>Crypto deposit addresses</div>
+          <div className="trade-layout">
+            <div className="trade-card">
+              <div style={{ display: 'grid', gap: 10 }}>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="sc-label">BTC address</span>
+                  <input className="form-input" value={btcAddress} onChange={(e) => setBtcAddress(e.target.value)} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="sc-label">USDT address</span>
+                  <input className="form-input" value={usdtAddress} onChange={(e) => setUsdtAddress(e.target.value)} />
+                </label>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className="btn-action gold" onClick={saveCryptoAddresses}>Save</button>
+                  <button className="btn-action" onClick={() => loadSettings().catch(() => {})}>Reload</button>
+                  {settingsMsg ? <span style={{ color: 'var(--green)', fontSize: 13 }}>{settingsMsg}</span> : null}
+                </div>
+                {settingsErr ? <div className="action-error" style={{ padding: '10px 12px', color: 'var(--red)' }}>{settingsErr}</div> : null}
+              </div>
+            </div>
           </div>
         </section>
 

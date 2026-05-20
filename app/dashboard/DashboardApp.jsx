@@ -231,9 +231,9 @@ const COUNTRIES = [
   { code: 'ZW', name: 'Zimbabwe' },
 ];
 
-const CRYPTO_PAYMENTS = {
-  BTC: { network: 'Bitcoin', address: 'bc1qxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
-  USDT: { network: 'USDT (TRC20)', address: 'Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+const CRYPTO_NETWORKS = {
+  BTC: { network: 'Bitcoin' },
+  USDT: { network: 'USDT (TRC20)' },
 };
 
 function tabFromPath(pathname) {
@@ -339,6 +339,7 @@ export default function DashboardApp() {
   const [cryptoKind, setCryptoKind] = useState('BTC');
   const [cryptoCopyMsg, setCryptoCopyMsg] = useState('');
   const [cryptoSentOpen, setCryptoSentOpen] = useState(false);
+  const [cryptoAddresses, setCryptoAddresses] = useState({ btc: '', usdt: '' });
 
   const [bankCountryOpen, setBankCountryOpen] = useState(false);
   const [bankCountry, setBankCountry] = useState('');
@@ -360,6 +361,16 @@ export default function DashboardApp() {
       if (generatingTimerRef.current) clearTimeout(generatingTimerRef.current);
     };
   }, []);
+
+  async function loadCryptoAddresses() {
+    const res = await API.get('/payment/crypto-addresses');
+    const data = await res?.json?.().catch(() => ({}));
+    if (!res?.ok || !data?.success) return;
+    setCryptoAddresses({
+      btc: String(data?.addresses?.btc || ''),
+      usdt: String(data?.addresses?.usdt || ''),
+    });
+  }
 
   useEffect(() => {
     document.body.classList.add('dashboard-body');
@@ -747,14 +758,14 @@ export default function DashboardApp() {
     setPayOptionError('');
     setCryptoCopyMsg('');
     setCryptoKind(kind);
+    loadCryptoAddresses().catch(() => {});
     setPayOptionOpen(false);
     setCryptoSentOpen(false);
     setCryptoOpen(true);
   }
 
   async function copyCryptoAddress() {
-    const info = CRYPTO_PAYMENTS[cryptoKind];
-    const address = info?.address || '';
+    const address = cryptoKind === 'BTC' ? cryptoAddresses.btc : cryptoAddresses.usdt;
     if (!address) return;
 
     try {
@@ -1453,7 +1464,7 @@ export default function DashboardApp() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
                   <div>
                     <div className="sc-label">Network</div>
-                    <div style={{ color: 'var(--text-0)', fontSize: 14, marginTop: 4 }}>{CRYPTO_PAYMENTS[cryptoKind]?.network || '—'}</div>
+                    <div style={{ color: 'var(--text-0)', fontSize: 14, marginTop: 4 }}>{CRYPTO_NETWORKS[cryptoKind]?.network || '—'}</div>
                   </div>
                   <button
                     className="btn-action"
@@ -1469,7 +1480,7 @@ export default function DashboardApp() {
                 <div style={{ marginTop: 12 }}>
                   <div className="sc-label">Wallet address</div>
                   <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid var(--border-dim)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-1)', fontSize: 13, wordBreak: 'break-all' }}>
-                    <span>{CRYPTO_PAYMENTS[cryptoKind]?.address || '—'}</span>
+                    <span>{(cryptoKind === 'BTC' ? cryptoAddresses.btc : cryptoAddresses.usdt) || '—'}</span>
                   </div>
                   {cryptoCopyMsg ? <div style={{ marginTop: 8, fontSize: 12, color: cryptoCopyMsg === 'Copied' ? 'var(--green)' : 'var(--red)' }}>{cryptoCopyMsg}</div> : null}
                 </div>
