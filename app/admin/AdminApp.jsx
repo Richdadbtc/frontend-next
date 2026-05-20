@@ -52,6 +52,7 @@ export default function AdminApp() {
   const [userKyc, setUserKyc] = useState('');
   const [userSuspended, setUserSuspended] = useState('');
   const [usersRows, setUsersRows] = useState([]);
+  const [userEmailError, setUserEmailError] = useState('');
 
   const [txType, setTxType] = useState('');
   const [txStatus, setTxStatus] = useState('');
@@ -123,6 +124,24 @@ export default function AdminApp() {
     if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to load users');
 
     setUsersRows(Array.isArray(data.users) ? data.users : []);
+  }
+
+  async function sendUserEmail(userId, email) {
+    setUserEmailError('');
+    try {
+      const subject = window.prompt(`Email subject to ${email || 'user'}`);
+      if (!subject) return;
+      const body = window.prompt('Email body');
+      if (!body) return;
+
+      const res = await API.post(`/admin/users/${encodeURIComponent(userId)}/email`, { subject, body });
+      const data = await res?.json?.().catch(() => ({}));
+      if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to send email');
+
+      window.alert('Email sent');
+    } catch (e) {
+      setUserEmailError(e.message || 'Unable to send email');
+    }
   }
 
   async function loadTransactions() {
@@ -442,6 +461,7 @@ export default function AdminApp() {
             </select>
             <button className="filter-btn" onClick={() => loadUsers().catch(() => {})}>Refresh</button>
           </div>
+          {userEmailError ? <div className="action-error" style={{ padding: '10px 12px', color: 'var(--red)' }}>{userEmailError}</div> : null}
           <div className="tx-table-wrap">
             <table className="tx-table">
               <thead>
@@ -451,12 +471,13 @@ export default function AdminApp() {
                   <th>KYC</th>
                   <th>Wallet</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {!usersRows.length ? (
                   <tr>
-                    <td colSpan={5} className="empty-row">No users</td>
+                    <td colSpan={6} className="empty-row">No users</td>
                   </tr>
                 ) : (
                   usersRows.map((u) => {
@@ -468,6 +489,9 @@ export default function AdminApp() {
                         <td>{u.kycStatus} (T{u.kycTier})</td>
                         <td>{fmtMoney(u.walletBalance || 0)}</td>
                         <td>{u.isSuspended ? 'suspended' : 'active'}</td>
+                        <td>
+                          <button className="btn-action" onClick={() => sendUserEmail(u._id, u.email)}>Send Email</button>
+                        </td>
                       </tr>
                     );
                   })
