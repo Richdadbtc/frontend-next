@@ -104,6 +104,26 @@ export default function AdminApp() {
     }
   }
 
+  async function fundUserWallet(userId, email) {
+    setUserEmailError('');
+    try {
+      const amountRaw = window.prompt(`Fund ${email} wallet amount (USD)`);
+      if (!amountRaw) return;
+      const amount = parseFloat(String(amountRaw));
+      if (!amount || Number.isNaN(amount) || amount <= 0) throw new Error('Invalid amount');
+
+      const note = window.prompt('Note (optional)') || '';
+      const res = await API.post(`/admin/users/${encodeURIComponent(userId)}/fund`, { amount, note });
+      const data = await res?.json?.().catch(() => ({}));
+      if (!res?.ok || !data?.success) throw new Error(data?.message || 'Unable to fund wallet');
+
+      window.alert('Wallet funded');
+      await loadUsers().catch(() => {});
+    } catch (e) {
+      setUserEmailError(e.message || 'Unable to fund wallet');
+    }
+  }
+
   useEffect(() => {
     const u = API.getUser();
     setAdminEmail(u?.email || '—');
@@ -548,7 +568,10 @@ export default function AdminApp() {
                         <td>{fmtMoney(u.walletBalance || 0)}</td>
                         <td>{u.isSuspended ? 'suspended' : 'active'}</td>
                         <td>
-                          <button className="btn-action" onClick={() => sendUserEmail(u._id, u.email)}>Send Email</button>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button className="btn-action gold" onClick={() => fundUserWallet(u._id, u.email)}>Fund</button>
+                            <button className="btn-action" onClick={() => sendUserEmail(u._id, u.email)}>Send Email</button>
+                          </div>
                         </td>
                       </tr>
                     );
